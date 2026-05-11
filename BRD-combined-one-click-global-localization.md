@@ -68,7 +68,7 @@ When expanding a clinical trial to new geographies, teams must manually translat
 - Input formats: **CDISC ODM-XML**, JSON, XLSX
 - Translation to 50+ languages including Right-to-Left (RTL) support (Arabic, Hebrew)
 - Preservation of OIDs, variable names, edit checks, skip logic, and derivations
-- RAG-grounded translation using Study Protocol and MedDRA/CDISC dictionaries
+- RAG-grounded translation using Study Protocol, MedDRA/CDISC dictionaries, and **Medidata Approved Translation Library**
 - Human-in-the-loop review workflow for medical/regulatory content
 - Automated back-translation for semantic drift detection
 - 21 CFR Part 11 audit trail and traceability matrix
@@ -113,42 +113,43 @@ When expanding a clinical trial to new geographies, teams must manually translat
 | ID | Requirement |
 |----|-------------|
 | FR-06 | System SHALL translate text using a multi-agent AI pipeline: Agent A (Translator), Agent B (Medical Reviewer), Agent C (Back-Translation Validator). |
-| FR-07 | System SHALL use RAG (Retrieval-Augmented Generation) grounded in the Study Protocol to resolve domain ambiguity (e.g., "Arm" → "Study Group" not "Upper Limb"). |
-| FR-08 | System SHALL accept therapeutic area-specific glossaries aligned with MedDRA and CDISC dictionaries to enforce consistent terminology. |
-| FR-09 | System SHALL provide surrounding technical context to the translation model (what the label is for, what validation it triggers, target audience). |
-| FR-10 | System SHALL support batch translation of an entire study environment in a single operation. |
-| FR-11 | System SHALL support incremental translation — only processing new or changed content on study amendments. |
+| FR-07 | System SHALL use RAG (Retrieval-Augmented Generation) grounded in the Study Protocol, **Medidata Approved Translation Library**, and domain dictionaries to resolve ambiguity. When a Medidata-approved translation already exists for a given string, the system SHALL use it directly rather than generating a new translation. |
+| FR-08 | System SHALL query the Medidata Approved Translation Library as the first step before AI translation. If an approved translation exists for the source string + target language pair, it SHALL be used without modification and marked as "pre-approved" in the audit trail. |
+| FR-09 | System SHALL accept therapeutic area-specific glossaries aligned with MedDRA and CDISC dictionaries to enforce consistent terminology. |
+| FR-10 | System SHALL provide surrounding technical context to the translation model (what the label is for, what validation it triggers, target audience). |
+| FR-11 | System SHALL support batch translation of an entire study environment in a single operation. |
+| FR-12 | System SHALL support incremental translation — only processing new or changed content on study amendments. |
 
 ### 6.3 Automated Quality Assurance
 
 | ID | Requirement |
 |----|-------------|
-| FR-12 | System SHALL automatically perform back-translation (target → source) and flag semantic drift exceeding a configurable threshold. |
-| FR-13 | System SHALL validate that all OIDs remain unchanged post-translation. |
-| FR-14 | System SHALL validate that edit check logic references and skip-logic scripts are intact. |
-| FR-15 | System SHALL validate that character encoding is correct for the target language. |
-| FR-16 | System SHALL validate that translated text fits within field length constraints. |
-| FR-17 | System SHALL produce a structural diff report comparing pre- and post-translation study definitions. |
-| FR-18 | System SHALL assign confidence scores to each translation and flag low-confidence segments for mandatory human review. |
-| FR-19 | System SHALL verify terminology consistency — the same source term maps to the same target term across the entire study. |
+| FR-13 | System SHALL automatically perform back-translation (target → source) and flag semantic drift exceeding a configurable threshold. |
+| FR-14 | System SHALL validate that all OIDs remain unchanged post-translation. |
+| FR-15 | System SHALL validate that edit check logic references and skip-logic scripts are intact. |
+| FR-16 | System SHALL validate that character encoding is correct for the target language. |
+| FR-17 | System SHALL validate that translated text fits within field length constraints. |
+| FR-18 | System SHALL produce a structural diff report comparing pre- and post-translation study definitions. |
+| FR-19 | System SHALL assign confidence scores to each translation and flag low-confidence segments for mandatory human review. |
+| FR-20 | System SHALL verify terminology consistency — the same source term maps to the same target term across the entire study. |
 
 ### 6.4 Review & Approval Workflow
 
 | ID | Requirement |
 |----|-------------|
-| FR-20 | System SHALL present translated content in a side-by-side review interface (source vs. target) with technical context. |
-| FR-21 | System SHALL allow reviewers to accept, reject, or modify individual translations. |
-| FR-22 | System SHALL route high-risk strings (primary endpoint questions, patient-facing safety content) to clinical lead review. |
-| FR-23 | System SHALL maintain a 21 CFR Part 11-ready audit trail: traceability matrix of original string, AI translation, human modifications, and approver identity. |
+| FR-21 | System SHALL present translated content in a side-by-side review interface (source vs. target) with technical context. |
+| FR-22 | System SHALL allow reviewers to accept, reject, or modify individual translations. |
+| FR-23 | System SHALL route high-risk strings (primary endpoint questions, patient-facing safety content) to clinical lead review. |
+| FR-24 | System SHALL maintain a 21 CFR Part 11-ready audit trail: traceability matrix of original string, AI translation, human modifications, and approver identity. |
 
 ### 6.5 Export & Integration
 
 | ID | Requirement |
 |----|-------------|
-| FR-24 | System SHALL re-assemble translated values into the original XML/JSON schema based on the OID key, producing a "Mirror Environment" file structure. |
-| FR-25 | System SHALL generate export files that pass the target EDC/eCOA platform's schema validation test on import. |
-| FR-26 | System SHALL support direct re-import into the source system without manual intervention. |
-| FR-27 | System SHALL provide a rollback capability to revert to the pre-translation state. |
+| FR-25 | System SHALL re-assemble translated values into the original XML/JSON schema based on the OID key, producing a "Mirror Environment" file structure. |
+| FR-26 | System SHALL generate export files that pass the target EDC/eCOA platform's schema validation test on import. |
+| FR-27 | System SHALL support direct re-import into the source system without manual intervention. |
+| FR-28 | System SHALL provide a rollback capability to revert to the pre-translation state. |
 
 ---
 
@@ -185,8 +186,10 @@ When expanding a clinical trial to new geographies, teams must manually translat
 └─────────────────────┬───────────────────────────────────────────┘
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  STEP 2: Contextual Grounding (RAG)                             │
-│  • Load Study Protocol as Knowledge Base                        │
+│  STEP 2: Contextual Grounding (RAG) + Approved Translation      │
+│  • Query Medidata Approved Translation Library FIRST             │
+│  • If approved translation exists → use directly (skip Step 3)  │
+│  • If no match → load Study Protocol as Knowledge Base           │
 │  • Load MedDRA + CDISC dictionaries                             │
 │  • Load therapeutic area glossary                               │
 │  • Resolve ambiguity: "Arm" → "Study Group" (not "Upper Limb") │
@@ -194,6 +197,7 @@ When expanding a clinical trial to new geographies, teams must manually translat
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  STEP 3: Multi-Agent Translation Loop                           │
+│  (Only for strings WITHOUT a pre-approved translation)          │
 │                                                                 │
 │  Agent A (Translator)                                           │
 │    → Generates target language string with context              │
@@ -223,6 +227,7 @@ When expanding a clinical trial to new geographies, teams must manually translat
 │  STEP 5: Human Review (conditional)                             │
 │  • Low-confidence segments → mandatory review                   │
 │  • High-risk strings → clinical lead review                     │
+│  • Pre-approved strings bypass review (already validated)       │
 │  • Side-by-side interface with context                          │
 └─────────────────────┬───────────────────────────────────────────┘
                       ▼
@@ -271,9 +276,10 @@ When expanding a clinical trial to new geographies, teams must manually translat
 
 1. Source study definitions are available in CDISC ODM-XML, JSON, or XLSX format.
 2. Study Protocol documents are available for RAG ingestion.
-3. MedDRA and CDISC dictionaries are accessible; therapeutic area glossaries exist or can be curated.
-4. AI translation models (AWS Bedrock, Claude) are available within approved infrastructure.
-5. Human reviewers are available for the approval workflow.
+3. Medidata Approved Translation Library is accessible and contains previously approved string translations indexed by source text and target language.
+4. MedDRA and CDISC dictionaries are accessible; therapeutic area glossaries exist or can be curated.
+5. AI translation models (AWS Bedrock, Claude) are available within approved infrastructure.
+6. Human reviewers are available for the approval workflow.
 
 ### Constraints
 
@@ -343,6 +349,7 @@ When expanding a clinical trial to new geographies, teams must manually translat
 | MedDRA | Medical Dictionary for Regulatory Activities — standardized medical terminology |
 | RTSM/IRT | Randomization and Trial Supply Management / Interactive Response Technology |
 | RAG | Retrieval-Augmented Generation — grounding LLM output in domain-specific knowledge |
+| Medidata Approved Translation Library | Repository of previously human-reviewed and approved translations indexed by source string and target language, used as the primary lookup before AI translation |
 | Edit Check | Programmatic validation rule applied to collected data |
 | Skip Logic | Conditional display rules that show/hide questions based on prior answers |
 | Back-translation | Translating the target language back to source to verify semantic accuracy |
